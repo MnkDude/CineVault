@@ -1,3 +1,62 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Cinematic theatrical background: dark gradient, vignette, subtle bokeh */
+.cinematic-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -30;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, #181818 60%, #2c1b0e 100%),
+    radial-gradient(ellipse at 50% 80%, rgba(0,0,0,0.7) 60%, transparent 100%),
+    radial-gradient(circle at 20% 20%, rgba(255, 200, 80, 0.10) 0%, transparent 60%),
+    radial-gradient(circle at 80% 30%, rgba(255, 120, 40, 0.09) 0%, transparent 60%);
+  background-blend-mode: overlay, multiply, lighten, lighten;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.3) inset;
+  animation: vignetteFade 10s ease-in-out infinite alternate;
+}
+
+@keyframes vignetteFade {
+  0% { opacity: 0.98; }
+  100% { opacity: 1; }
+}
+
+/* App-wide dark/cinematic theme overrides */
+body, html, #root {
+  background: linear-gradient(135deg, #181818 60%, #2c1b0e 100%) !important;
+  color: #f5e6c5;
+}
+
+.bg-app-cinema {
+  background: linear-gradient(135deg, #181818 60%, #2c1b0e 100%);
+}
+
+.text-cinema-primary {
+  color: #ffeec0;
+}
+.text-cinema-secondary {
+  color: #bfa16a;
+}
+.text-cinema-muted {
+  color: #bfa16a99;
+}
+
+.bg-cinema-card {
+  background: linear-gradient(120deg, #23201a 80%, #181818 100%);
+  border: 1.5px solid #bfa16a33;
+  border-radius: 1.5rem;
+}
+
+.border-cinema-gold {
+  border-color: #bfa16a;
+}
+
+/* For MovieDetail modal, Home cards, etc. */
+.shadow-cinema {
+  box-shadow: 0 4px 32px 0 #000a, 0 0 0 2px #bfa16a33;
+}
+
+/* Maintain the moving dots background */
+/* MovingDotsBackground.tsx already overlays the dots, so nothing to change here */

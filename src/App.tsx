@@ -7,12 +7,17 @@ import WatchlistManagement from './components/WatchlistManagement';
 import UserProfile from './components/UserProfile';
 import AuthModal from './components/AuthModal';
 import MovieDetail from './components/MovieDetail';
+import MovingDotsBackground from './components/MovingDotsBackground';
+import { playSound } from './utils/sound';
 
 export interface Movie {
   id: number;
   title: string;
   poster: string;
   year: number;
+  release_date?: string;
+  language?: string;
+  country?: string;
   genre: string[];
   runtime: number;
   rating: number;
@@ -52,6 +57,9 @@ function App() {
       title: "The Dark Knight",
       poster: "https://images.pexels.com/photos/1179229/pexels-photo-1179229.jpeg?auto=compress&cs=tinysrgb&w=300",
       year: 2008,
+      release_date: "2008-07-18",
+      language: "English",
+      country: "USA",
       genre: ["Action", "Crime", "Drama"],
       runtime: 152,
       rating: 9.0,
@@ -66,6 +74,9 @@ function App() {
       title: "Breaking Bad",
       poster: "https://images.pexels.com/photos/1040160/pexels-photo-1040160.jpeg?auto=compress&cs=tinysrgb&w=300",
       year: 2008,
+      release_date: "2008-01-20",
+      language: "English",
+      country: "USA",
       genre: ["Crime", "Drama", "Thriller"],
       runtime: 47,
       rating: 9.5,
@@ -80,6 +91,9 @@ function App() {
       title: "Inception",
       poster: "https://images.pexels.com/photos/1157557/pexels-photo-1157557.jpeg?auto=compress&cs=tinysrgb&w=300",
       year: 2010,
+      release_date: "2010-07-16",
+      language: "English",
+      country: "USA",
       genre: ["Action", "Sci-Fi", "Thriller"],
       runtime: 148,
       rating: 8.8,
@@ -102,6 +116,34 @@ function App() {
     });
   }, []);
 
+  const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+
+  const fetchMovieDetails = async (movie: Movie) => {
+    const type = movie.type === 'series' ? 'tv' : 'movie';
+    const detailsRes = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}?api_key=${TMDB_API_KEY}&language=en-US`);
+    const details = await detailsRes.json();
+    return {
+      ...movie,
+      runtime: details.runtime || details.episode_run_time?.[0] || movie.runtime,
+      genre: (details.genres || []).map((g: any) => g.name),
+      rating: details.vote_average ? details.vote_average.toFixed(1) : movie.rating,
+      description: details.overview || movie.description,
+      release_date: details.release_date || details.first_air_date,
+      language: details.spoken_languages?.[0]?.english_name || 'N/A',
+      country: details.production_countries?.[0]?.name || 'N/A',
+      poster: details.poster_path ? `https://image.tmdb.org/t/p/w300${details.poster_path}` : movie.poster,
+      year: (details.release_date || details.first_air_date || movie.year).slice(0, 4),
+      totalEpisodes: details.number_of_episodes || movie.progress?.totalEpisodes,
+      imdbId: details.imdb_id || undefined
+    };
+  };
+
+  const handleMovieSelect = async (movie: Movie) => {
+    playSound('/mixkit-fast-double-click-on-mouse-275.wav');
+    const enriched = await fetchMovieDetails(movie);
+    setSelectedMovie(enriched);
+  };
+
   const tabs = [
     { id: 'home', label: 'Home', icon: Search },
     { id: 'stats', label: 'Stats', icon: BarChart3 },
@@ -123,7 +165,7 @@ function App() {
       return (
         <MovieDetail
           movie={selectedMovie}
-          onClose={() => setSelectedMovie(null)}
+          onClose={() => { playSound('/mixkit-fast-double-click-on-mouse-275.wav'); setSelectedMovie(null); }}
           onUpdate={updateMovieInWatchlist}
         />
       );
@@ -134,7 +176,7 @@ function App() {
         return (
           <Home
             watchlist={watchlist}
-            onMovieSelect={setSelectedMovie}
+            onMovieSelect={handleMovieSelect}
             onAddToWatchlist={addToWatchlist}
           />
         );
@@ -144,25 +186,30 @@ function App() {
         return (
           <WatchlistManagement
             watchlist={watchlist}
-            onMovieSelect={setSelectedMovie}
+            onMovieSelect={handleMovieSelect}
             onUpdate={updateMovieInWatchlist}
           />
         );
       default:
-        return <Home watchlist={watchlist} onMovieSelect={setSelectedMovie} onAddToWatchlist={addToWatchlist} />;
+        return <Home watchlist={watchlist} onMovieSelect={handleMovieSelect} onAddToWatchlist={addToWatchlist} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="relative min-h-screen overflow-x-hidden">
+      <div className="cinematic-bg" aria-hidden="true" />
+      <MovingDotsBackground />
+      <div className="bg-parallax-stars" aria-hidden="true" />
+      <div className="bg-nebula" aria-hidden="true" />
+
       <Header
         user={user}
-        onAuthClick={() => setShowAuthModal(true)}
+        onAuthClick={() => { playSound('/mixkit-fast-double-click-on-mouse-275.wav'); setShowAuthModal(true); }}
         onProfileClick={() => setActiveTab('profile')}
       />
 
       {/* Tab Navigation */}
-      <nav className="bg-black/20 backdrop-blur-md border-b border-purple-500/20">
+      <nav className="bg-black/10 backdrop-blur-lg border-b border-purple-500/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8 overflow-x-auto">
             {tabs.map((tab) => {
@@ -202,7 +249,7 @@ function App() {
       {/* Auth Modal */}
       {showAuthModal && (
         <AuthModal
-          onClose={() => setShowAuthModal(false)}
+          onClose={() => { playSound('/mixkit-fast-double-click-on-mouse-275.wav'); setShowAuthModal(false); }}
           onLogin={(userData) => {
             setUser(userData);
             setShowAuthModal(false);
