@@ -12,41 +12,45 @@ const Home: React.FC<HomeProps> = ({ watchlist, onMovieSelect, onAddToWatchlist 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Movie[]>([]);
 
-  // Mock search function
-  const mockSearchResults: Movie[] = [
-    {
-      id: 101,
-      title: "Dune",
-      poster: "https://images.pexels.com/photos/1022927/pexels-photo-1022927.jpeg?auto=compress&cs=tinysrgb&w=300",
-      year: 2021,
-      genre: ["Sci-Fi", "Adventure", "Drama"],
-      runtime: 155,
-      rating: 8.1,
-      description: "Feature adaptation of Frank Herbert's science fiction novel about the son of a noble family.",
-      type: 'movie'
-    },
-    {
-      id: 102,
-      title: "Stranger Things",
-      poster: "https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=300",
-      year: 2016,
-      genre: ["Drama", "Fantasy", "Horror"],
-      runtime: 51,
-      rating: 8.7,
-      description: "When a young boy disappears, his mother, a police chief and his friends must confront terrifying supernatural forces.",
-      type: 'series'
-    }
-  ];
+  // Use Vite environment variable for TMDB API key
+  const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
-  const handleSearch = (query: string) => {
+  const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    if (query.length > 2) {
-      // Mock search - in real app, this would be an API call
-      setSearchResults(mockSearchResults.filter(movie =>
-        movie.title.toLowerCase().includes(query.toLowerCase())
-      ));
-    } else {
-      setSearchResults([]);
+    // Only search when Enter is pressed, not on every character
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.length > 2) {
+      (async () => {
+        try {
+          const res = await fetch(
+            `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&language=en-US&query=${encodeURIComponent(searchQuery)}&page=1&include_adult=true`
+          );
+          const data = await res.json();
+          let results = (data.results || []).filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv');
+          // Sort by popularity descending
+          results = results.sort((a: any, b: any) => (b.popularity || 0) - (a.popularity || 0));
+          const mapped: Movie[] = results.map((item: any) => ({
+            id: item.id,
+            title: item.title || item.name,
+            poster: item.poster_path
+              ? `https://image.tmdb.org/t/p/w300${item.poster_path}`
+              : '/no-image.png',
+            year: parseInt((item.release_date || item.first_air_date || '0').slice(0, 4)),
+            release_date: item.release_date || item.first_air_date,
+            language: item.original_language || 'N/A',
+            genre: [],
+            runtime: 0,
+            rating: item.vote_average || 0,
+            description: item.overview || '',
+            type: item.media_type === 'movie' ? 'movie' : 'series',
+          }));
+          setSearchResults(mapped);
+        } catch (e) {
+          setSearchResults([]);
+        }
+      })();
     }
   };
 
@@ -61,25 +65,28 @@ const Home: React.FC<HomeProps> = ({ watchlist, onMovieSelect, onAddToWatchlist 
   return (
     <div className="space-y-8">
       {/* Search Section */}
-      <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 backdrop-blur-md border border-purple-500/20 rounded-xl p-6">
+      <div className="bg-cinema-card shadow-cinema border border-cinema-gold/20 rounded-xl p-6 animate-fade-in">
         <div className="relative max-w-2xl">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cinema-muted" size={20} />
           <input
             type="text"
             placeholder="Search movies and TV series..."
             value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-black/20 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleInputKeyDown}
+            className="w-full pl-10 pr-4 py-3 bg-[#181818]/60 border border-cinema-gold/20 rounded-lg text-cinema-primary placeholder-cinema-muted focus:outline-none focus:border-cinema-gold focus:ring-2 focus:ring-cinema-gold/20"
           />
         </div>
 
         {/* Search Results */}
-        {searchResults.length > 0 && (
+        {searchResults.length > 0 ? (
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {searchResults.map((movie) => (
+            {searchResults.map((movie, idx) => (
               <div
                 key={movie.id}
-                className="bg-black/20 border border-gray-700 rounded-lg p-4 hover:bg-black/30 transition-all cursor-pointer group"
+                className="bg-cinema-card border border-cinema-gold/20 rounded-lg p-4 hover:bg-[#23201a]/80 transition-all cursor-pointer group transform-gpu hover:scale-105 hover:shadow-cinema duration-300 animate-fade-in"
+                style={{ animationDelay: `${idx * 60}ms` }}
+                onClick={() => onMovieSelect(movie)}
               >
                 <div className="flex space-x-3">
                   <img
@@ -88,44 +95,52 @@ const Home: React.FC<HomeProps> = ({ watchlist, onMovieSelect, onAddToWatchlist 
                     className="w-16 h-24 object-cover rounded"
                   />
                   <div className="flex-1">
-                    <h3 className="font-semibold text-white group-hover:text-purple-400 transition-colors">
+                    <h3 className="font-semibold text-cinema-primary group-hover:text-cinema-secondary transition-colors">
                       {movie.title}
                     </h3>
-                    <p className="text-sm text-gray-400">{movie.year} • {movie.type}</p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-sm text-cinema-muted capitalize">
+                      {movie.release_date || movie.year} • {movie.language}
+                    </p>
+                    <p className="text-xs text-cinema-muted mt-1">
                       {movie.genre.slice(0, 2).join(', ')}
                     </p>
                     <div className="flex items-center space-x-2 mt-2">
                       <Star className="text-yellow-500" size={14} />
-                      <span className="text-sm text-gray-300">{movie.rating}</span>
+                      <span className="text-cinema-primary font-semibold">{movie.rating.toFixed(1)}</span>
+                      <span className="text-cinema-muted text-xs">/ 10</span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => onAddToWatchlist({ ...movie, status: 'plan-to-watch' })}
-                    className="p-2 text-gray-400 hover:text-purple-400 hover:bg-purple-500/10 rounded transition-colors"
-                  >
-                    <Plus size={18} />
-                  </button>
                 </div>
               </div>
             ))}
           </div>
+        ) : (
+          searchQuery.length > 2 && (
+            <div className="mt-4 text-center text-cinema-muted text-lg">
+              No results found.
+            </div>
+          )
         )}
       </div>
 
       {/* Currently Watching */}
       {currentlyWatching.length > 0 && (
-        <section>
-          <div className="flex items-center space-x-2 mb-4">
-            <Clock className="text-orange-500" size={20} />
-            <h2 className="text-xl font-bold text-white">Continue Watching</h2>
+        <section className="animate-section-fade-in">
+          <div className="flex items-center space-x-2 mb-4 relative overflow-hidden">
+            <Clock className="text-cinema-secondary" size={20} />
+            <h2 className="text-xl font-bold text-cinema-primary relative z-10">
+              <span className="relative inline-block">
+                Continue Watching
+                <span className="absolute inset-0 pointer-events-none bg-gradient-to-r from-cinema-primary/30 to-cinema-primary/0 animate-light-sweep rounded blur-sm" />
+              </span>
+            </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {currentlyWatching.map((movie) => (
               <div
                 key={movie.id}
                 onClick={() => onMovieSelect(movie)}
-                className="bg-black/30 border border-gray-700 rounded-xl overflow-hidden hover:bg-black/40 transition-all cursor-pointer group hover:scale-105 hover:shadow-xl hover:shadow-purple-500/10"
+                className="bg-cinema-card border border-cinema-gold/20 rounded-xl overflow-hidden hover:bg-[#23201a]/80 transition-all cursor-pointer group hover:scale-105 hover:shadow-cinema"
               >
                 <div className="relative">
                   <img
@@ -135,25 +150,66 @@ const Home: React.FC<HomeProps> = ({ watchlist, onMovieSelect, onAddToWatchlist 
                   />
                   {movie.progress && (
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                      <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div className="w-full bg-cinema-muted/30 rounded-full h-2">
                         <div
-                          className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full"
+                          className="bg-gradient-to-r from-cinema-secondary to-cinema-primary h-2 rounded-full"
                           style={{
                             width: `${(movie.progress.currentEpisode / movie.progress.totalEpisodes) * 100}%`
                           }}
                         />
                       </div>
-                      <p className="text-xs text-gray-300 mt-1">
+                      <p className="text-xs text-cinema-muted mt-1">
                         Episode {movie.progress.currentEpisode} of {movie.progress.totalEpisodes}
                       </p>
                     </div>
                   )}
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold text-white group-hover:text-purple-400 transition-colors">
+                  <h3 className="font-semibold text-cinema-primary group-hover:text-cinema-secondary transition-colors">
                     {movie.title}
                   </h3>
-                  <p className="text-sm text-gray-400">{movie.year}</p>
+                  <p className="text-sm text-cinema-muted">{movie.year}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Plan to Watch */}
+      {planToWatch.length > 0 && (
+        <section className="animate-section-fade-in">
+          <div className="mb-4 relative overflow-hidden">
+            <h2 className="text-xl font-bold text-cinema-primary relative z-10">
+              <span className="relative inline-block">
+                Plan to Watch
+                <span className="absolute inset-0 pointer-events-none bg-gradient-to-r from-cinema-primary/30 to-cinema-primary/0 animate-light-sweep rounded blur-sm" />
+              </span>
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {planToWatch.map((movie) => (
+              <div
+                key={movie.id}
+                onClick={() => onMovieSelect(movie)}
+                className="bg-cinema-card border border-cinema-gold/20 rounded-lg p-4 hover:bg-[#23201a]/80 transition-all cursor-pointer group"
+              >
+                <div className="flex space-x-3">
+                  <img
+                    src={movie.poster}
+                    alt={movie.title}
+                    className="w-16 h-24 object-cover rounded"
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-cinema-primary group-hover:text-cinema-secondary transition-colors">
+                      {movie.title}
+                    </h3>
+                    <p className="text-sm text-cinema-muted">{movie.year}</p>
+                    <div className="flex items-center space-x-1 mt-2">
+                      <Star className="text-yellow-500" size={14} />
+                      <span className="text-sm text-cinema-primary">{movie.rating}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -163,10 +219,15 @@ const Home: React.FC<HomeProps> = ({ watchlist, onMovieSelect, onAddToWatchlist 
 
       {/* Recently Watched */}
       {recentlyWatched.length > 0 && (
-        <section>
-          <div className="flex items-center space-x-2 mb-4">
+        <section className="animate-section-fade-in">
+          <div className="flex items-center space-x-2 mb-4 relative overflow-hidden">
             <TrendingUp className="text-green-500" size={20} />
-            <h2 className="text-xl font-bold text-white">Recently Watched</h2>
+            <h2 className="text-xl font-bold text-cinema-primary relative z-10">
+              <span className="relative inline-block">
+                Recently Watched
+                <span className="absolute inset-0 pointer-events-none bg-gradient-to-r from-cinema-primary/30 to-cinema-primary/0 animate-light-sweep rounded blur-sm" />
+              </span>
+            </h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {recentlyWatched.map((movie) => (
@@ -186,48 +247,14 @@ const Home: React.FC<HomeProps> = ({ watchlist, onMovieSelect, onAddToWatchlist 
                     {movie.userRating && (
                       <div className="flex items-center space-x-1">
                         <Star className="text-yellow-500" size={14} fill="currentColor" />
-                        <span className="text-white text-sm">{movie.userRating}</span>
+                        <span className="text-cinema-primary text-sm">{movie.userRating}</span>
                       </div>
                     )}
                   </div>
                 </div>
-                <h3 className="text-sm font-medium text-white mt-2 group-hover:text-purple-400 transition-colors">
+                <h3 className="text-sm font-medium text-cinema-primary mt-2 group-hover:text-cinema-secondary transition-colors">
                   {movie.title}
                 </h3>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Plan to Watch */}
-      {planToWatch.length > 0 && (
-        <section>
-          <h2 className="text-xl font-bold text-white mb-4">Plan to Watch</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {planToWatch.map((movie) => (
-              <div
-                key={movie.id}
-                onClick={() => onMovieSelect(movie)}
-                className="bg-black/30 border border-gray-700 rounded-lg p-4 hover:bg-black/40 transition-all cursor-pointer group"
-              >
-                <div className="flex space-x-3">
-                  <img
-                    src={movie.poster}
-                    alt={movie.title}
-                    className="w-16 h-24 object-cover rounded"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-white group-hover:text-purple-400 transition-colors">
-                      {movie.title}
-                    </h3>
-                    <p className="text-sm text-gray-400">{movie.year}</p>
-                    <div className="flex items-center space-x-1 mt-2">
-                      <Star className="text-yellow-500" size={14} />
-                      <span className="text-sm text-gray-300">{movie.rating}</span>
-                    </div>
-                  </div>
-                </div>
               </div>
             ))}
           </div>
